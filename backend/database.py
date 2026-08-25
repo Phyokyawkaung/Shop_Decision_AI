@@ -61,7 +61,6 @@ def get_suppliers(product_id: int):
         cursor.close()
         connection.close()
 
-
 def get_shipping_methods():
     connection = get_connection()
 
@@ -79,6 +78,59 @@ def get_shipping_methods():
         )
 
         return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+def get_supplier_product(product_id: int, supplier_name: str):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                s.name,
+                s.rating,
+                sp.price_thb,
+                sp.moq
+            FROM supplier_products sp
+            JOIN suppliers s
+                ON s.id = sp.supplier_id
+            WHERE sp.product_id = %s
+              AND s.name = %s
+            """,
+            (product_id, supplier_name),
+        )
+
+        return cursor.fetchone()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_shipping_method(method_name: str):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                name,
+                cost_thb_per_kg,
+                delivery_days
+            FROM shipping_methods
+            WHERE name = %s
+            """,
+            (method_name,),
+        )
+
+        return cursor.fetchone()
 
     finally:
         cursor.close()
