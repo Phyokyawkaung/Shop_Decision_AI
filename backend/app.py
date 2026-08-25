@@ -17,15 +17,16 @@ def get_recommendation(
 ):
     with PrologMQI() as mqi:
         with mqi.create_thread() as prolog:
-            # Load the Prolog knowledge base.
-            prolog.query(f"consult({MAIN_PL.as_posix()!r})")
 
-            # Escape text safely for Prolog atoms.
+            prolog.query(
+                f"consult('{MAIN_PL.as_posix()}')"
+            )
+
             product_atom = product.replace("'", "''")
             urgency_atom = urgency.replace("'", "''")
 
             query = f"""
-                recommend(
+                best_recommendation(
                     {product_atom},
                     {quantity},
                     {weight_per_item},
@@ -34,7 +35,8 @@ def get_recommendation(
                     {urgency_atom},
                     Supplier,
                     Shipping,
-                    Margin
+                    Margin,
+                    Score
                 )
             """
 
@@ -51,5 +53,5 @@ if __name__ == "__main__":
         urgency="normal",
     )
 
-    print("Prolog result:")
+    print("Best recommendation:")
     print(result)
