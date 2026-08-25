@@ -135,3 +135,49 @@ def get_shipping_method(method_name: str):
     finally:
         cursor.close()
         connection.close()
+def get_inventory(product_id: int):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                current_stock,
+                safety_stock
+            FROM inventory
+            WHERE product_id = %s
+            """,
+            (product_id,),
+        )
+
+        return cursor.fetchone()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+def get_recent_sales(product_id: int):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                quantity_sold,
+                sale_date
+            FROM sales
+            WHERE product_id = %s
+            ORDER BY sale_date DESC
+            """,
+            (product_id,),
+        )
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()

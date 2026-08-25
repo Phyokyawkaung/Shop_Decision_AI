@@ -8,14 +8,68 @@ from database import (
     get_suppliers,
     get_supplier_product,
     get_shipping_method,
+    get_inventory,
+    get_recent_sales,
 )
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROLOG_DIR = PROJECT_ROOT / "Prolog"
 MAIN_PL = PROLOG_DIR / "main.pl"
 
+def load_inventory_into_prolog(
+    prolog,
+    product_name: str,
+    product_id: int,
+):
+    """
+    Load inventory and sales history from MariaDB
+    into Prolog.
+    """
 
+    prolog.query(
+        "retractall(inventory_data(_, _, _))"
+    )
+
+    prolog.query(
+        "retractall(sales_data(_, _))"
+    )
+
+    inventory = get_inventory(product_id)
+
+    if inventory is None:
+        raise ValueError(
+            f"No inventory record found for {product_name}"
+        )
+
+    current_stock = int(
+        inventory["current_stock"]
+    )
+
+    safety_stock = int(
+        inventory["safety_stock"]
+    )
+
+    prolog.query(
+        f"assertz(inventory_data("
+        f"{product_name}, "
+        f"{current_stock}, "
+        f"{safety_stock}"
+        f"))"
+    )
+
+    sales = get_recent_sales(product_id)
+
+    for sale in sales:
+        quantity_sold = int(
+            sale["quantity_sold"]
+        )
+
+        prolog.query(
+            f"assertz(sales_data("
+            f"{product_name}, "
+            f"{quantity_sold}"
+            f"))"
+        )
 def load_database_into_prolog(prolog, product_name: str):
     """
     Load supplier and shipping data from MariaDB
@@ -80,7 +134,9 @@ def get_recommendation(
     quantity: int,
     urgency: str,
     thb_to_mmk: float = 100,
+    
 ):
+    
     """
     Get the best recommendation and its reasoning
     from the Prolog engine.
@@ -98,6 +154,11 @@ def get_recommendation(
             product_data = load_database_into_prolog(
                 prolog,
                 product,
+            )
+            load_inventory_into_prolog(
+                prolog,
+                product,
+                product_data["id"],
             )
 
             # Product information comes from the database.
@@ -167,9 +228,22 @@ def get_recommendation(
 
             reason_result = prolog.query(reason_query)
 
+            inventory_query = f"""
+                reorder_needed(
+                    {product_atom},
+                    6,
+                    Recommendation,
+                    CurrentStock,
+                    AverageSales
+                )
+            """
+
+            inventory_result = prolog.query(inventory_query)
+
             return {
                 "recommendation": result,
                 "reasons": reason_result,
+                "inventory": inventory_result,
             }
 
 
@@ -208,6 +282,36 @@ if __name__ == "__main__":
 
     else:
         recommendation = recommendation_result[0]
+        inventory_result = result["inventory"]
+
+        print("\n--- Inventory ---")
+
+        if inventory_result:
+            inventory_data = inventory_result[0]
+
+            current_stock = inventory_data["CurrentStock"]
+            average_sales = float(
+                inventory_data["AverageSales"]
+            )
+            inventory_decision = inventory_data[
+                "Recommendation"
+            ]
+
+            print(
+                f"Current Stock: {current_stock}"
+            )
+
+            print(
+                f"Average Daily Sales: "
+                f"{average_sales:.2f}"
+            )
+
+            if inventory_decision == "reorder":
+                print("Inventory Decision: REORDER")
+            else:
+                print("Inventory Decision: NO REORDER")
+        else:
+            print("Inventory data unavailable.")
 
         supplier_name = recommendation["Supplier"]
         shipping_name = recommendation["Shipping"]
@@ -330,7 +434,7 @@ if __name__ == "__main__":
         # Display reasoning
         # --------------------------------------------------
 
-        print("\n--- Why? ---")
+        print("\n--- Reasoning of The Engine ---")
 
         if reasons:
             reason_list = reasons[0]["Reason"]

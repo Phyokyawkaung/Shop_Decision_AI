@@ -1,7 +1,7 @@
 :- consult(supplier).
 :- consult(shipping).
 :- consult(profitability).
-
+:- consult(inventory).
 
 % ==========================================================
 % Find a valid candidate
@@ -127,67 +127,95 @@ recommendation_reason(
     supplier(
         Supplier,
         Product,
-        _Price,
+        PriceTHB,
         MOQ,
         Rating
     ),
 
+    shipping(
+        ShippingMethod,
+        ShippingCostPerKg,
+        DeliveryDays
+    ),
+
+    TotalWeight is Quantity * WeightPerItem,
+    ProductCostTHB is PriceTHB * Quantity,
+    ShippingCostTHB is ShippingCostPerKg * TotalWeight,
+    TotalCostTHB is ProductCostTHB + ShippingCostTHB,
+    TotalCostMMK is TotalCostTHB * THBToMMK,
+    RevenueMMK is SellingPriceMMK * Quantity,
+    ProfitMMK is RevenueMMK - TotalCostMMK,
+
     (
-        Rating >= 4.5
-        ->
+        Rating >= 4.5 ->
         SupplierReason =
-            "Supplier has a high reliability rating."
+            "Supplier is considered reliable because the rating is at least 4.5."
         ;
         SupplierReason =
-            "Supplier has a lower reliability rating."
+            "Supplier has a rating below the reliability threshold."
     ),
 
     (
-        Quantity >= MOQ
-        ->
+        Quantity >= MOQ ->
         MOQReason =
-            "The requested quantity satisfies the supplier MOQ."
+            "The order quantity satisfies the supplier minimum order quantity."
         ;
         MOQReason =
-            "The requested quantity does not satisfy the supplier MOQ."
+            "The order quantity does not satisfy the supplier minimum order quantity."
     ),
 
     (
-        Urgency = urgent,
-        ShippingMethod = air_cargo
-        ->
-        ShippingReason =
-            "Air cargo is suitable because the order is urgent."
+        Urgency = urgent ->
+        (
+            ShippingMethod = air_cargo ->
+            ShippingReason =
+                "Air cargo was selected because the order is urgent."
+            ;
+            ShippingReason =
+                "The selected shipping method does not provide the fastest delivery."
+        )
         ;
-        Urgency = normal,
-        ShippingMethod = land_cargo
-        ->
+        ShippingMethod = land_cargo ->
         ShippingReason =
-            "Land cargo is suitable because the order is not urgent."
+            "Land cargo was selected because the order is not urgent and has a lower shipping cost."
         ;
         ShippingReason =
-            "The selected shipping method is suitable for the order."
+            "The selected shipping method matches the current delivery requirement."
     ),
 
     (
-        Margin >= 20
-        ->
+        Margin >= 20 ->
         ProfitReason =
-            "The expected profit margin meets the minimum profitability requirement."
+            "The expected profit margin meets the 20% minimum target."
         ;
         ProfitReason =
-            "The expected profit margin does not meet the minimum profitability requirement."
+            "The expected profit margin is below the 20% target."
     ),
 
-    % Keep these variables explicitly part of the reasoning
-    % predicate so the predicate can be expanded later.
-    _ = WeightPerItem,
-    _ = SellingPriceMMK,
-    _ = THBToMMK,
+    format(
+        atom(ProductReason),
+        "The product cost is ~2f THB for ~0f units.",
+        [ProductCostTHB, Quantity]
+    ),
+
+    format(
+        atom(ShippingCostReason),
+        "Shipping costs ~2f THB for ~2f kg and the estimated delivery time is ~0f days.",
+        [ShippingCostTHB, TotalWeight, DeliveryDays]
+    ),
+
+    format(
+        atom(ProfitDetail),
+        "Estimated profit is ~2f MMK with a ~2f% margin.",
+        [ProfitMMK, Margin]
+    ),
 
     Reason = [
+        ProductReason,
         SupplierReason,
         MOQReason,
         ShippingReason,
-        ProfitReason
+        ShippingCostReason,
+        ProfitReason,
+        ProfitDetail
     ].
