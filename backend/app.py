@@ -21,11 +21,6 @@ def load_inventory_into_prolog(
     product_name: str,
     product_id: int,
 ):
-    """
-    Load inventory and sales history from MariaDB
-    into Prolog.
-    """
-
     prolog.query(
         "retractall(inventory_data(_, _, _))"
     )
@@ -36,10 +31,9 @@ def load_inventory_into_prolog(
 
     inventory = get_inventory(product_id)
 
+    # Inventory is optional.
     if inventory is None:
-        raise ValueError(
-            f"No inventory record found for {product_name}"
-        )
+        return False
 
     current_stock = int(
         inventory["current_stock"]
@@ -70,6 +64,8 @@ def load_inventory_into_prolog(
             f"{quantity_sold}"
             f"))"
         )
+
+    return True
 def load_database_into_prolog(prolog, product_name: str):
     """
     Load supplier and shipping data from MariaDB
@@ -155,12 +151,12 @@ def get_recommendation(
                 prolog,
                 product,
             )
-            load_inventory_into_prolog(
+
+            inventory_available = load_inventory_into_prolog(
                 prolog,
                 product,
                 product_data["id"],
-            )
-
+)
             # Product information comes from the database.
             weight_per_item = float(
                 product_data["weight_kg"]
@@ -228,17 +224,22 @@ def get_recommendation(
 
             reason_result = prolog.query(reason_query)
 
-            inventory_query = f"""
-                reorder_needed(
-                    {product_atom},
-                    6,
-                    Recommendation,
-                    CurrentStock,
-                    AverageSales
-                )
-            """
+            inventory_result = []
 
-            inventory_result = prolog.query(inventory_query)
+            if inventory_available:
+                inventory_query = f"""
+                    reorder_needed(
+                        {product_atom},
+                        6,
+                        Recommendation,
+                        CurrentStock,
+                        AverageSales
+                    )
+                """
+
+                inventory_result = prolog.query(
+                    inventory_query
+                )
 
             return {
                 "recommendation": result,

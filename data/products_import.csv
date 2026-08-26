@@ -1,0 +1,8 @@
+product,selling_price_mmk,weight_kg,supplier,supplier_rating,price_thb,moq
+handbag,40000,0.5,supplier_a,4.7,220,20
+handbag,40000,0.5,supplier_b,4.1,200,100
+handbag,40000,0.5,supplier_c,4.9,240,10
+tshirt,25000,0.3,supplier_a,4.7,120,20
+tshirt,25000,0.3,supplier_d,4.6,110,30
+shoes,60000,0.8,supplier_c,4.9,350,10
+shoes,60000,0.8,supplier_d,4.6,330,20
