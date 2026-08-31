@@ -5,13 +5,13 @@ from database import get_connection
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CSV_FILE = PROJECT_ROOT / "data" / "products_import.csv"
+CSV_FILE = PROJECT_ROOT / "data" / "scraped_data.csv"
 
 
 def get_or_create_product(
     cursor,
     name: str,
-    selling_price_mmk: float,
+    category: str,
     weight_kg: float,
 ):
     cursor.execute(
@@ -31,12 +31,12 @@ def get_or_create_product(
         cursor.execute(
             """
             UPDATE products
-            SET selling_price_mmk = %s,
+            SET category = %s,
                 weight_kg = %s
             WHERE id = %s
             """,
             (
-                selling_price_mmk,
+                category,
                 weight_kg,
                 product_id,
             ),
@@ -48,15 +48,16 @@ def get_or_create_product(
         """
         INSERT INTO products (
             name,
+            category,
             weight_kg,
             selling_price_mmk
         )
-        VALUES (%s, %s, %s)
+        VALUES (%s, %s, %s, NULL)
         """,
         (
             name,
+            category,
             weight_kg,
-            selling_price_mmk,
         ),
     )
 
@@ -66,6 +67,7 @@ def get_or_create_product(
 def get_or_create_supplier(
     cursor,
     name: str,
+    trust_score: int,
     rating: float,
 ):
     cursor.execute(
@@ -85,11 +87,13 @@ def get_or_create_supplier(
         cursor.execute(
             """
             UPDATE suppliers
-            SET rating = %s,
+            SET trust_score = %s,
+                rating = %s,
                 reliable = %s
             WHERE id = %s
             """,
             (
+                trust_score,
                 rating,
                 rating >= 4.5,
                 supplier_id,
@@ -102,13 +106,15 @@ def get_or_create_supplier(
         """
         INSERT INTO suppliers (
             name,
+            trust_score,
             rating,
             reliable
         )
-        VALUES (%s, %s, %s)
+        VALUES (%s, %s, %s, %s)
         """,
         (
             name,
+            trust_score,
             rating,
             rating >= 4.5,
         ),
@@ -126,47 +132,50 @@ def import_products():
         with open(
             CSV_FILE,
             "r",
-            encoding="utf-8",
+            encoding="utf-8-sig",
             newline="",
         ) as file:
 
             reader = csv.DictReader(file)
 
             for row in reader:
+                product_name = row["product_name"].strip()
+                category = row["category"].strip()
+                supplier_name = row["supplier_name"].strip()
 
-                product_name = row["product"]
-                supplier_name = row["supplier"]
-
-                selling_price = float(
-                    row["selling_price_mmk"]
-                )
-
-                weight = float(
-                    row["weight_kg"]
+                trust_score = int(
+                    row["trust_score"]
                 )
 
                 rating = float(
-                    row["supplier_rating"]
+                    row["rating"]
                 )
 
                 price_thb = float(
                     row["price_thb"]
                 )
 
+                weight_kg = float(
+                    row["weight_kg"]
+                )
+
                 moq = int(
                     row["moq"]
                 )
 
+                source_url = row["url"].strip()
+
                 product_id = get_or_create_product(
                     cursor,
                     product_name,
-                    selling_price,
-                    weight,
+                    category,
+                    weight_kg,
                 )
 
                 supplier_id = get_or_create_supplier(
                     cursor,
                     supplier_name,
+                    trust_score,
                     rating,
                 )
 
@@ -190,12 +199,14 @@ def import_products():
                         """
                         UPDATE supplier_products
                         SET price_thb = %s,
-                            moq = %s
+                            moq = %s,
+                            source_url = %s
                         WHERE id = %s
                         """,
                         (
                             price_thb,
                             moq,
+                            source_url,
                             existing[0],
                         ),
                     )
@@ -206,21 +217,23 @@ def import_products():
                             supplier_id,
                             product_id,
                             price_thb,
-                            moq
+                            moq,
+                            source_url
                         )
-                        VALUES (%s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s)
                         """,
                         (
                             supplier_id,
                             product_id,
                             price_thb,
                             moq,
+                            source_url,
                         ),
                     )
 
         connection.commit()
 
-        print("CSV import completed successfully.")
+        print("Scraped data imported successfully.")
 
     except Exception:
         connection.rollback()

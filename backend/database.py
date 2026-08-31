@@ -44,6 +44,7 @@ def get_suppliers(product_id: int):
             SELECT
                 s.name,
                 s.rating,
+                s.trust_score,
                 s.reliable,
                 sp.price_thb,
                 sp.moq

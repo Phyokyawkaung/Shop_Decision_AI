@@ -21,12 +21,13 @@ candidate(
 ) :-
 
     supplier(
-        Supplier,
-        Product,
-        _Price,
-        MOQ,
-        Rating
-    ),
+    Supplier,
+    Product,
+    _Price,
+    MOQ,
+    Rating,
+    TrustScore
+),
 
     Quantity >= MOQ,
 
@@ -47,7 +48,10 @@ candidate(
         Margin
     ),
 
-    Score is (Margin * 1.5) + (Rating * 15).
+    Score is
+    (Margin * 1.5)
+    + (Rating * 10)
+    + (TrustScore * 0.5).
 
 
 % ==========================================================

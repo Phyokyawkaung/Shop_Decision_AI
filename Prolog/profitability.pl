@@ -1,28 +1,73 @@
 % Calculate total product cost in THB.
 product_cost(Supplier, Quantity, Cost) :-
-    supplier(Supplier, _, Price, MOQ, _),
+    supplier(
+        Supplier,
+        _,
+        Price,
+        MOQ,
+        _,
+        _
+    ),
     Quantity >= MOQ,
     Cost is Price * Quantity.
 
+
 % Calculate shipping cost.
-shipping_cost(Method, Quantity, WeightPerItem, Cost) :-
-    shipping(Method, PricePerKg, _),
-    TotalWeight is Quantity * WeightPerItem,
-    Cost is PricePerKg * TotalWeight.
+shipping_cost(
+    Method,
+    Quantity,
+    WeightPerItem,
+    Cost
+) :-
+    shipping(
+        Method,
+        PricePerKg,
+        _
+    ),
+    TotalWeight is
+        Quantity * WeightPerItem,
+    Cost is
+        PricePerKg * TotalWeight.
 
-% A product is profitable when estimated margin >= 20%.
-profitable(Supplier, Quantity, Method, WeightPerItem,
-           SellingPriceMMK, THBToMMK, Margin) :-
 
-    product_cost(Supplier, Quantity, ProductCostTHB),
-    shipping_cost(Method, Quantity, WeightPerItem, ShippingCostTHB),
+% A product is profitable when
+% estimated margin is at least 20%.
+profitable(
+    Supplier,
+    Quantity,
+    Method,
+    WeightPerItem,
+    SellingPriceMMK,
+    THBToMMK,
+    Margin
+) :-
 
-    TotalCostTHB is ProductCostTHB + ShippingCostTHB,
-    TotalCostMMK is TotalCostTHB * THBToMMK,
+    product_cost(
+        Supplier,
+        Quantity,
+        ProductCostTHB
+    ),
 
-    RevenueMMK is SellingPriceMMK * Quantity,
+    shipping_cost(
+        Method,
+        Quantity,
+        WeightPerItem,
+        ShippingCostTHB
+    ),
 
-    ProfitMMK is RevenueMMK - TotalCostMMK,
-    Margin is (ProfitMMK / RevenueMMK) * 100,
+    TotalCostTHB is
+        ProductCostTHB + ShippingCostTHB,
+
+    TotalCostMMK is
+        TotalCostTHB * THBToMMK,
+
+    RevenueMMK is
+        SellingPriceMMK * Quantity,
+
+    ProfitMMK is
+        RevenueMMK - TotalCostMMK,
+
+    Margin is
+        (ProfitMMK / RevenueMMK) * 100,
 
     Margin >= 20.

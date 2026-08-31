@@ -12,9 +12,18 @@ from database import (
     get_recent_sales,
 )
 
+from exchange_rate import get_thb_to_mmk_rate
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROLOG_DIR = PROJECT_ROOT / "Prolog"
 MAIN_PL = PROLOG_DIR / "main.pl"
+
+def prolog_atom(value: str) -> str:
+    """
+    Convert a Python string into a quoted Prolog atom.
+    """
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
 
 def load_inventory_into_prolog(
     prolog,
@@ -88,18 +97,38 @@ def load_database_into_prolog(prolog, product_name: str):
     suppliers = get_suppliers(product["id"])
 
     for supplier in suppliers:
-        name = supplier["name"]
-        price_thb = float(supplier["price_thb"])
-        moq = int(supplier["moq"])
-        rating = float(supplier["rating"])
+        name = prolog_atom(
+            supplier["name"]
+        )
+
+        product_atom = prolog_atom(
+            product_name
+        )
+
+        price_thb = float(
+            supplier["price_thb"]
+        )
+
+        moq = int(
+            supplier["moq"]
+        )
+
+        rating = float(
+            supplier["rating"]
+        )
+
+        trust_score = int(
+            supplier["trust_score"]
+        )
 
         prolog.query(
             f"assertz(supplier("
             f"{name}, "
-            f"{product_name}, "
+            f"{product_atom}, "
             f"{price_thb}, "
             f"{moq}, "
-            f"{rating}"
+            f"{rating}, "
+            f"{trust_score}"
             f"))"
         )
 
@@ -110,7 +139,9 @@ def load_database_into_prolog(prolog, product_name: str):
     shipping_methods = get_shipping_methods()
 
     for method in shipping_methods:
-        name = method["name"]
+        name = prolog_atom(
+            method["name"]
+        )
         cost_per_kg = float(method["cost_thb_per_kg"])
         delivery_days = int(method["delivery_days"])
 
@@ -124,13 +155,15 @@ def load_database_into_prolog(prolog, product_name: str):
 
     return product
 
+exchange_data = get_thb_to_mmk_rate()
+
+thb_to_mmk = exchange_data["rate"]
 
 def get_recommendation(
     product: str,
     quantity: int,
     urgency: str,
-    thb_to_mmk: float = 100,
-    
+    selling_price_mmk: float,
 ):
     
     """
@@ -162,13 +195,9 @@ def get_recommendation(
                 product_data["weight_kg"]
             )
 
-            selling_price_mmk = float(
-                product_data["selling_price_mmk"]
-            )
-
             # Escape text for Prolog atoms.
-            product_atom = product.replace("'", "''")
-            urgency_atom = urgency.replace("'", "''")
+            product_atom = prolog_atom(product)
+            urgency_atom = prolog_atom(urgency)
 
             # --------------------------------------------------
             # Ask Prolog for the best recommendation
@@ -201,6 +230,9 @@ def get_recommendation(
 
             supplier_name = recommendation["Supplier"]
             shipping_name = recommendation["Shipping"]
+
+            supplier_atom = prolog_atom(supplier_name)
+            shipping_atom = prolog_atom(shipping_name)
             margin = float(recommendation["Margin"])
 
             # --------------------------------------------------
@@ -215,8 +247,8 @@ def get_recommendation(
                     {selling_price_mmk},
                     {thb_to_mmk},
                     {urgency_atom},
-                    {supplier_name},
-                    {shipping_name},
+                    {supplier_atom},
+                    {shipping_atom},
                     {margin},
                     Reason
                 )
@@ -258,11 +290,15 @@ if __name__ == "__main__":
     print("===================================")
 
     product = input(
-        "Product: "
+    "Product: "
     ).strip().lower()
 
     quantity = int(
         input("Quantity: ")
+    )
+
+    selling_price_mmk = float(
+        input("Expected selling price (MMK): ")
     )
 
     urgency = input(
@@ -270,10 +306,11 @@ if __name__ == "__main__":
     ).strip().lower()
 
     result = get_recommendation(
-        product=product,
-        quantity=quantity,
-        urgency=urgency,
-    )
+    product=product,
+    quantity=quantity,
+    selling_price_mmk=selling_price_mmk,
+    urgency=urgency,
+)
 
     recommendation_result = result["recommendation"]
     reasons = result["reasons"]
@@ -367,7 +404,7 @@ if __name__ == "__main__":
         )
 
         revenue_mmk = (
-            float(product_data["selling_price_mmk"])
+            selling_price_mmk
             * quantity
         )
 
@@ -375,7 +412,15 @@ if __name__ == "__main__":
             revenue_mmk
             - total_cost_mmk
         )
+        print(
+            f"Exchange Rate: "
+            f"1 THB = {thb_to_mmk:,.2f} MMK"
+        )
 
+        print(
+            f"Rate Updated: "
+            f"{exchange_data['retrieved_at']}"
+        )
         # --------------------------------------------------
         # Display recommendation
         # --------------------------------------------------
