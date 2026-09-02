@@ -19,9 +19,14 @@ def get_product(product_name: str):
 
         cursor.execute(
             """
-            SELECT id, name, weight_kg, selling_price_mmk
+            SELECT
+                id,
+                name,
+                category,
+                weight_kg,
+                selling_price_mmk
             FROM products
-            WHERE name = %s
+            WHERE LOWER(name) = LOWER(%s)
             """,
             (product_name,),
         )

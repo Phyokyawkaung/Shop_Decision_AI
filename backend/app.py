@@ -18,6 +18,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROLOG_DIR = PROJECT_ROOT / "Prolog"
 MAIN_PL = PROLOG_DIR / "main.pl"
 
+from search import (
+    load_products,
+    search_products,
+    display_products,
+)
+
 def prolog_atom(value: str) -> str:
     """
     Convert a Python string into a quoted Prolog atom.
@@ -235,6 +241,25 @@ def get_recommendation(
             shipping_atom = prolog_atom(shipping_name)
             margin = float(recommendation["Margin"])
 
+            shipping_query = f"""
+                shipping(
+                    {shipping_name},
+                    ShippingCostPerKg,
+                    LeadTimeDays
+                )
+            """
+
+            shipping_result = prolog.query(
+                shipping_query
+            )
+
+            if shipping_result:
+                lead_time_days = int(
+                    shipping_result[0]["LeadTimeDays"]
+                )
+            else:
+                lead_time_days = 0
+
             # --------------------------------------------------
             # Ask Prolog why it made that recommendation
             # --------------------------------------------------
@@ -262,7 +287,7 @@ def get_recommendation(
                 inventory_query = f"""
                     reorder_needed(
                         {product_atom},
-                        6,
+                        {lead_time_days},
                         Recommendation,
                         CurrentStock,
                         AverageSales
@@ -277,8 +302,9 @@ def get_recommendation(
                 "recommendation": result,
                 "reasons": reason_result,
                 "inventory": inventory_result,
+                "exchange_rate": thb_to_mmk,
+                "exchange_rate_info": exchange_data,
             }
-
 
 # ==========================================================
 # Main program
@@ -286,204 +312,320 @@ def get_recommendation(
 
 if __name__ == "__main__":
     print("===================================")
-    print("     ShopAI Import Advisor")
+    print("        ShopAI Import Advisor")
     print("===================================")
 
-    product = input(
-    "Product: "
-    ).strip().lower()
+    # --------------------------------------------------
+    # Step 1: Product discovery
+    # --------------------------------------------------
+
+    products = load_products()
+
+    keyword = input(
+        "\nSearch product: "
+    ).strip()
+
+    results = search_products(
+        products,
+        keyword,
+    )
+
+    if not results:
+        print("\nNo products found.")
+        raise SystemExit
+
+    display_products(results)
+
+    selection = input(
+        "Select a product number: "
+    ).strip()
+
+    try:
+        index = int(selection)
+
+    except ValueError:
+        print("Invalid selection.")
+        raise SystemExit
+
+    if index < 1 or index > len(results):
+        print("Invalid product number.")
+        raise SystemExit
+
+    selected_product = results[index - 1]
+
+    product_name = selected_product[
+        "product_name"
+    ]
+
+    print(
+        f"\nSelected product: {product_name}"
+    )
+
+    # --------------------------------------------------
+    # Step 2: Business inputs
+    # --------------------------------------------------
 
     quantity = int(
         input("Quantity: ")
     )
 
     selling_price_mmk = float(
-        input("Expected selling price (MMK): ")
+        input(
+            "Expected selling price (MMK): "
+        )
     )
 
     urgency = input(
         "Urgency (normal/urgent): "
     ).strip().lower()
 
-    result = get_recommendation(
-    product=product,
-    quantity=quantity,
-    selling_price_mmk=selling_price_mmk,
-    urgency=urgency,
-)
+    # --------------------------------------------------
+    # Step 3: AI analysis
+    # --------------------------------------------------
 
-    recommendation_result = result["recommendation"]
+    result = get_recommendation(
+        product=product_name,
+        quantity=quantity,
+        selling_price_mmk=selling_price_mmk,
+        urgency=urgency,
+    )
+
+    recommendation_result = result[
+        "recommendation"
+    ]
+
     reasons = result["reasons"]
 
+    inventory_result = result[
+        "inventory"
+    ]
+
+    # --------------------------------------------------
+    # Step 4: Display recommendation
+    # --------------------------------------------------
+
     if not recommendation_result:
-        print("\nNo suitable recommendation found.")
+        print(
+            "\nNo suitable recommendation found."
+        )
+        raise SystemExit
 
-    else:
-        recommendation = recommendation_result[0]
-        inventory_result = result["inventory"]
+    recommendation = recommendation_result[0]
 
-        print("\n--- Inventory ---")
+    supplier_name = recommendation[
+        "Supplier"
+    ]
 
-        if inventory_result:
-            inventory_data = inventory_result[0]
+    shipping_name = recommendation[
+        "Shipping"
+    ]
 
-            current_stock = inventory_data["CurrentStock"]
-            average_sales = float(
-                inventory_data["AverageSales"]
-            )
-            inventory_decision = inventory_data[
+    margin = float(
+        recommendation["Margin"]
+    )
+
+    score = float(
+        recommendation["Score"]
+    )
+
+    # --------------------------------------------------
+    # Get database details
+    # --------------------------------------------------
+
+    product_data = get_product(
+        product_name
+    )
+
+    supplier_data = get_supplier_product(
+        product_data["id"],
+        supplier_name,
+    )
+
+    shipping_data = get_shipping_method(
+        shipping_name
+    )
+
+    # --------------------------------------------------
+    # Cost calculations
+    # --------------------------------------------------
+
+    product_cost_thb = (
+        float(
+            supplier_data["price_thb"]
+        )
+        * quantity
+    )
+
+    total_weight = (
+        float(product_data["weight_kg"])
+        * quantity
+    )
+
+    shipping_cost_thb = (
+        float(
+            shipping_data[
+                "cost_thb_per_kg"
+            ]
+        )
+        * total_weight
+    )
+
+    total_cost_thb = (
+        product_cost_thb
+        + shipping_cost_thb
+    )
+
+    exchange_rate = result[
+        "exchange_rate"
+    ]
+
+    total_cost_mmk = (
+        total_cost_thb
+        * exchange_rate
+    )
+
+    revenue_mmk = (
+        selling_price_mmk
+        * quantity
+    )
+
+    profit_mmk = (
+        revenue_mmk
+        - total_cost_mmk
+    )
+
+    # --------------------------------------------------
+    # Display results
+    # --------------------------------------------------
+
+    print("\n===================================")
+    print("       AI RECOMMENDATION")
+    print("===================================")
+
+    print(
+        f"Supplier: {supplier_name}"
+    )
+
+    print(
+        f"Shipping: {shipping_name}"
+    )
+
+    print("\n--- Cost Analysis ---")
+
+    print(
+        f"Product Cost: "
+        f"{product_cost_thb:,.2f} THB"
+    )
+
+    print(
+        f"Shipping Cost: "
+        f"{shipping_cost_thb:,.2f} THB"
+    )
+
+    print(
+        f"Total Cost: "
+        f"{total_cost_thb:,.2f} THB"
+    )
+
+    print(
+        f"Exchange Rate: "
+        f"1 THB = "
+        f"{exchange_rate:,.2f} MMK"
+    )
+
+    print(
+        f"Total Cost: "
+        f"{total_cost_mmk:,.2f} MMK"
+    )
+
+    print(
+        f"Expected Revenue: "
+        f"{revenue_mmk:,.2f} MMK"
+    )
+
+    print(
+        f"Estimated Profit: "
+        f"{profit_mmk:,.2f} MMK"
+    )
+
+    print(
+        f"Profit Margin: "
+        f"{margin:.2f}%"
+    )
+
+    print(
+        f"AI Score: "
+        f"{score:.2f}"
+    )
+
+    # --------------------------------------------------
+    # Inventory
+    # --------------------------------------------------
+
+    print("\n--- Inventory ---")
+
+    if inventory_result:
+        inventory_data = (
+            inventory_result[0]
+        )
+
+        current_stock = int(
+            inventory_data[
+                "CurrentStock"
+            ]
+        )
+
+        average_sales = float(
+            inventory_data[
+                "AverageSales"
+            ]
+        )
+
+        inventory_decision = (
+            inventory_data[
                 "Recommendation"
             ]
+        )
 
+        print(
+            f"Current Stock: "
+            f"{current_stock}"
+        )
+
+        print(
+            f"Average Daily Sales: "
+            f"{average_sales:.2f}"
+        )
+
+        if inventory_decision == "reorder":
             print(
-                f"Current Stock: {current_stock}"
+                "Inventory Decision: "
+                "REORDER"
             )
-
-            print(
-                f"Average Daily Sales: "
-                f"{average_sales:.2f}"
-            )
-
-            if inventory_decision == "reorder":
-                print("Inventory Decision: REORDER")
-            else:
-                print("Inventory Decision: NO REORDER")
         else:
-            print("Inventory data unavailable.")
+            print(
+                "Inventory Decision: "
+                "NO REORDER"
+            )
 
-        supplier_name = recommendation["Supplier"]
-        shipping_name = recommendation["Shipping"]
-        margin = float(recommendation["Margin"])
-        score = float(recommendation["Score"])
-
-        # --------------------------------------------------
-        # Get additional information from MariaDB
-        # --------------------------------------------------
-
-        product_data = get_product(product)
-
-        supplier_data = get_supplier_product(
-            product_data["id"],
-            supplier_name,
-        )
-
-        shipping_data = get_shipping_method(
-            shipping_name
-        )
-
-        # --------------------------------------------------
-        # Cost calculations
-        # --------------------------------------------------
-
-        product_cost_thb = (
-            float(supplier_data["price_thb"])
-            * quantity
-        )
-
-        total_weight = (
-            float(product_data["weight_kg"])
-            * quantity
-        )
-
-        shipping_cost_thb = (
-            float(shipping_data["cost_thb_per_kg"])
-            * total_weight
-        )
-
-        total_cost_thb = (
-            product_cost_thb
-            + shipping_cost_thb
-        )
-
-        # Temporary test exchange rate.
-        exchange_rate = 100
-
-        total_cost_mmk = (
-            total_cost_thb
-            * exchange_rate
-        )
-
-        revenue_mmk = (
-            selling_price_mmk
-            * quantity
-        )
-
-        profit_mmk = (
-            revenue_mmk
-            - total_cost_mmk
-        )
+    else:
         print(
-            f"Exchange Rate: "
-            f"1 THB = {thb_to_mmk:,.2f} MMK"
+            "Inventory: Not available"
+            "\nReason: No inventory/sales history found for this product."
         )
 
-        print(
-            f"Rate Updated: "
-            f"{exchange_data['retrieved_at']}"
-        )
-        # --------------------------------------------------
-        # Display recommendation
-        # --------------------------------------------------
+    # --------------------------------------------------
+    # AI reasoning
+    # --------------------------------------------------
 
-        print("\n===================================")
-        print("       AI RECOMMENDATION")
-        print("===================================")
+    print(
+        "\n--- Reasoning of The Engine ---"
+    )
 
-        print(f"Supplier: {supplier_name}")
-        print(f"Shipping: {shipping_name}")
+    if reasons:
+        reason_list = reasons[0][
+            "Reason"
+        ]
 
-        print("\n--- Cost Analysis ---")
-
-        print(
-            f"Product Cost: "
-            f"{product_cost_thb:,.2f} THB"
-        )
-
-        print(
-            f"Shipping Cost: "
-            f"{shipping_cost_thb:,.2f} THB"
-        )
-
-        print(
-            f"Total Cost: "
-            f"{total_cost_thb:,.2f} THB"
-        )
-
-        print(
-            f"Total Cost: "
-            f"{total_cost_mmk:,.2f} MMK"
-        )
-
-        print(
-            f"Expected Revenue: "
-            f"{revenue_mmk:,.2f} MMK"
-        )
-
-        print(
-            f"Estimated Profit: "
-            f"{profit_mmk:,.2f} MMK"
-        )
-
-        print(
-            f"Profit Margin: "
-            f"{margin:.2f}%"
-        )
-
-        print(
-            f"AI Score: "
-            f"{score:.2f}"
-        )
-
-        print("\nDecision: RECOMMENDED")
-
-        # --------------------------------------------------
-        # Display reasoning
-        # --------------------------------------------------
-
-        print("\n--- Reasoning of The Engine ---")
-
-        if reasons:
-            reason_list = reasons[0]["Reason"]
-
-            for reason in reason_list:
-                print(f"- {reason}")
+        for reason in reason_list:
+            print(f"- {reason}")

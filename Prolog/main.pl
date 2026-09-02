@@ -38,6 +38,12 @@ candidate(
         Urgency
     ),
 
+    shipping_preference(
+    ShippingMethod,
+    Urgency,
+    ShippingScore
+    ),
+
     profitable(
         Supplier,
         Quantity,
@@ -51,8 +57,8 @@ candidate(
     Score is
     (Margin * 1.5)
     + (Rating * 10)
-    + (TrustScore * 0.5).
-
+    + (TrustScore * 0.5)
+    + ShippingScore.
 
 % ==========================================================
 % Find the best candidate

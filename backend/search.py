@@ -134,7 +134,6 @@ def display_products(results):
 
         print()
 
-
 def main():
     products = load_products()
 
@@ -158,15 +157,11 @@ def main():
     display_products(results)
 
     selection = input(
-        "Select a product number (or press Enter to cancel): "
+        "Select a product number: "
     ).strip()
-
-    if not selection:
-        return None
 
     try:
         index = int(selection)
-
     except ValueError:
         print("Invalid selection.")
         return None
@@ -182,7 +177,7 @@ if __name__ == "__main__":
     selected_product = main()
 
     if selected_product:
-        print("\nSelected product:")
         print(
-            selected_product["product_name"]
+            f"\nSelected: "
+            f"{selected_product['product_name']}"
         )
