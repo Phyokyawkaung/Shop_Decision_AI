@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+  margin: 0;
+  color: #f8f6fb;
+
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+
+  background:
+  
+    radial-gradient(
+      circle,
+      rgba(186, 230, 253, 0.22) 0%,
+      rgba(186, 230, 253, 0.10) 45%,
+      transparent 68%
+    ) 18% 22% / 100px 100px no-repeat,
+
+    radial-gradient(
+      circle,
+      rgba(196, 181, 253, 0.22) 0%,
+      rgba(196, 181, 253, 0.10) 45%,
+      transparent 68%
+    ) 80% 35% / 120px 120px no-repeat,
+
+    radial-gradient(
+      circle,
+      rgba(165, 243, 252, 0.16) 0%,
+      rgba(165, 243, 252, 0.07) 45%,
+      transparent 68%
+    ) 65% 78% / 90px 90px no-repeat,
+
+    linear-gradient(
+      135deg,
+      #100b15 0%,
+      #181020 38%,
+      #271636 72%,
+      #160c20 100%
+    );
+
+  background-attachment: fixed;
+
+  @apply antialiased;
+}
+  select option {
+    background-color: #ffffff;
+    color: #27212d;
+  }
+
+  ::selection {
+    background-color: #d9ccef;
+    color: #2f223d;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #eee9f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #b9aec1;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9f93a8;
+  }
+}
+
+@layer components {
+  .btn-primary,
+  .btn-gradient {
+    @apply inline-flex items-center justify-center gap-2
+    rounded-lg
+    px-5 py-2.5
+    text-sm font-semibold text-white
+    transition duration-200
+    focus:outline-none
+    focus:ring-2
+    focus:ring-[#7656b3]/25
+    disabled:cursor-not-allowed
+    disabled:opacity-70;
+
+    background-color: #7656b3;
+  }
+
+  .btn-gradient {
+    @apply w-full;
+  }
+
+  .btn-primary:hover,
+  .btn-gradient:hover {
+    background-color: #66479f;
+  }
+
+  .glass-card {
+  @apply rounded-xl border p-6 shadow-sm;
+
+  border-color: #d8cfe0;
+  background-color: #f7f4fa;
+}
+  .field-input {
+    @apply w-full
+    rounded-lg
+    border
+    bg-white
+    px-4 py-3
+    text-sm
+    placeholder:text-[#9b93a2]
+    transition
+    focus:outline-none
+    focus:ring-2
+    focus:ring-[#7656b3]/10;
+
+    border-color: #cfc6d6;
+    color: #27212d;
+  }
+
+  .field-input:focus {
+    border-color: #7656b3;
+  }
+
+  .badge-reorder {
+    @apply inline-flex items-center
+    rounded-md
+    border
+    px-3 py-1
+    text-xs font-bold
+    uppercase tracking-wide;
+
+    border-color: #e4c38f;
+    background-color: #fff7e8;
+    color: #a96812;
+  }
+
+  .badge-ok {
+    @apply inline-flex items-center
+    rounded-md
+    border
+    px-3 py-1
+    text-xs font-bold
+    uppercase tracking-wide;
+
+    border-color: #a9d6cf;
+    background-color: #edf8f6;
+    color: #24776d;
+  }
+
+  .spinner {
+    @apply h-10 w-10
+    animate-spin
+    rounded-full
+    border-4;
+
+    border-color: #ddd5e4;
+    border-top-color: #7656b3;
+  }
+}

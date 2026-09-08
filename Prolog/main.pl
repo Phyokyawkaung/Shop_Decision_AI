@@ -133,13 +133,13 @@ recommendation_reason(
     Margin,
     Reason
 ) :-
-
     supplier(
         Supplier,
         Product,
-        PriceTHB,
+        Price,
         MOQ,
-        Rating
+        Rating,
+        TrustScore
     ),
 
     shipping(
@@ -149,24 +149,33 @@ recommendation_reason(
     ),
 
     TotalWeight is Quantity * WeightPerItem,
-    ProductCostTHB is PriceTHB * Quantity,
+    ProductCostTHB is Price * Quantity,
     ShippingCostTHB is ShippingCostPerKg * TotalWeight,
     TotalCostTHB is ProductCostTHB + ShippingCostTHB,
     TotalCostMMK is TotalCostTHB * THBToMMK,
     RevenueMMK is SellingPriceMMK * Quantity,
     ProfitMMK is RevenueMMK - TotalCostMMK,
 
-    (
-        Rating >= 4.5 ->
-        SupplierReason =
-            "Supplier is considered reliable because the rating is at least 4.5."
-        ;
-        SupplierReason =
-            "Supplier has a rating below the reliability threshold."
+    format(
+        atom(ProductReason),
+        "The product cost is ~2f THB for ~0f units.",
+        [ProductCostTHB, Quantity]
     ),
 
     (
-        Quantity >= MOQ ->
+        Rating >= 3.8,
+        TrustScore >= 75
+        ->
+        SupplierReason =
+            "Supplier is considered reliable based on its rating and trust score."
+        ;
+        SupplierReason =
+            "Supplier does not meet the reliability requirements."
+    ),
+
+    (
+        Quantity >= MOQ
+        ->
         MOQReason =
             "The order quantity satisfies the supplier minimum order quantity."
         ;
@@ -175,9 +184,11 @@ recommendation_reason(
     ),
 
     (
-        Urgency = urgent ->
+        Urgency = urgent
+        ->
         (
-            ShippingMethod = air_cargo ->
+            ShippingMethod = air_cargo
+            ->
             ShippingReason =
                 "Air cargo was selected because the order is urgent."
             ;
@@ -185,7 +196,8 @@ recommendation_reason(
                 "The selected shipping method does not provide the fastest delivery."
         )
         ;
-        ShippingMethod = land_cargo ->
+        ShippingMethod = land_cargo
+        ->
         ShippingReason =
             "Land cargo was selected because the order is not urgent and has a lower shipping cost."
         ;
@@ -194,7 +206,8 @@ recommendation_reason(
     ),
 
     (
-        Margin >= 20 ->
+        Margin >= 20
+        ->
         ProfitReason =
             "The expected profit margin meets the 20% minimum target."
         ;
@@ -203,14 +216,8 @@ recommendation_reason(
     ),
 
     format(
-        atom(ProductReason),
-        "The product cost is ~2f THB for ~0f units.",
-        [ProductCostTHB, Quantity]
-    ),
-
-    format(
         atom(ShippingCostReason),
-        "Shipping costs ~2f THB for ~2f kg and the estimated delivery time is ~0f days.",
+        "Shipping costs ~2f THB for ~2f kg and estimated delivery time is ~0f days.",
         [ShippingCostTHB, TotalWeight, DeliveryDays]
     ),
 

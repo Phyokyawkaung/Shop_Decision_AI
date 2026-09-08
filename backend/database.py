@@ -38,6 +38,104 @@ def get_product(product_name: str):
         connection.close()
 
 
+def get_product_by_id(product_id: int):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                name,
+                category,
+                weight_kg,
+                selling_price_mmk
+            FROM products
+            WHERE id = %s
+            """,
+            (product_id,),
+        )
+
+        return cursor.fetchone()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def search_product_records(query: str = ""):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        query = query.strip().lower()
+
+        if query:
+            keyword = f"%{query}%"
+
+            cursor.execute(
+                """
+                SELECT
+                    p.id,
+                    p.name AS product_name,
+                    s.name AS supplier_name,
+                    p.category,
+                    sp.price_thb,
+                    p.weight_kg,
+                    sp.moq,
+                    s.rating,
+                    s.trust_score,
+                    sp.source_url AS url
+                FROM products p
+                JOIN supplier_products sp
+                    ON sp.product_id = p.id
+                JOIN suppliers s
+                    ON s.id = sp.supplier_id
+                WHERE
+                    LOWER(p.name) LIKE %s
+                    OR LOWER(s.name) LIKE %s
+                    OR LOWER(COALESCE(p.category, '')) LIKE %s
+                ORDER BY p.name
+                """,
+                (keyword, keyword, keyword),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    p.id,
+                    p.name AS product_name,
+                    s.name AS supplier_name,
+                    p.category,
+                    sp.price_thb,
+                    p.weight_kg,
+                    sp.moq,
+                    s.rating,
+                    s.trust_score,
+                    sp.source_url AS url
+                FROM products p
+                JOIN supplier_products sp
+                    ON sp.product_id = p.id
+                JOIN suppliers s
+                    ON s.id = sp.supplier_id
+                ORDER BY p.name
+                """
+            )
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_all_product_records():
+    return search_product_records("")
+
+
 def get_suppliers(product_id: int):
     connection = get_connection()
 
@@ -67,6 +165,7 @@ def get_suppliers(product_id: int):
         cursor.close()
         connection.close()
 
+
 def get_shipping_methods():
     connection = get_connection()
 
@@ -89,6 +188,7 @@ def get_shipping_methods():
         cursor.close()
         connection.close()
 
+
 def get_supplier_product(product_id: int, supplier_name: str):
     connection = get_connection()
 
@@ -100,6 +200,7 @@ def get_supplier_product(product_id: int, supplier_name: str):
             SELECT
                 s.name,
                 s.rating,
+                s.trust_score,
                 sp.price_thb,
                 sp.moq
             FROM supplier_products sp
@@ -141,6 +242,8 @@ def get_shipping_method(method_name: str):
     finally:
         cursor.close()
         connection.close()
+
+
 def get_inventory(product_id: int):
     connection = get_connection()
 
@@ -164,6 +267,7 @@ def get_inventory(product_id: int):
         cursor.close()
         connection.close()
 
+
 def get_recent_sales(product_id: int):
     connection = get_connection()
 
@@ -183,6 +287,95 @@ def get_recent_sales(product_id: int):
         )
 
         return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_inventory_overview():
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                i.product_id AS id,
+                p.name AS product_name,
+                i.current_stock,
+                i.safety_stock
+            FROM inventory i
+            JOIN products p
+                ON p.id = i.product_id
+            ORDER BY p.name
+            """
+        )
+
+        rows = cursor.fetchall()
+
+        for row in rows:
+            cursor.execute(
+                """
+                SELECT AVG(quantity_sold) AS average_daily_sales
+                FROM sales
+                WHERE product_id = %s
+                """,
+                (row["id"],),
+            )
+
+            sales = cursor.fetchone()
+
+            average_sales = (
+                float(sales["average_daily_sales"])
+                if sales
+                and sales["average_daily_sales"] is not None
+                else 0.0
+            )
+
+            reorder_point = (
+                average_sales * 6
+                + float(row["safety_stock"])
+            )
+
+            row["average_daily_sales"] = average_sales
+            row["reorder_point"] = reorder_point
+
+            row["status"] = (
+                "REORDER"
+                if float(row["current_stock"]) <= reorder_point
+                else "OK"
+            )
+
+        return rows
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_dashboard_stats():
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT COUNT(*) AS total FROM products"
+        )
+        products = cursor.fetchone()["total"]
+
+        cursor.execute(
+            "SELECT COUNT(*) AS total FROM suppliers"
+        )
+        suppliers = cursor.fetchone()["total"]
+
+        return {
+            "products": products,
+            "suppliers": suppliers,
+            "analyses": 0,
+        }
 
     finally:
         cursor.close()
