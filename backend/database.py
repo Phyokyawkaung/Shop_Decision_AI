@@ -374,8 +374,114 @@ def get_dashboard_stats():
         return {
             "products": products,
             "suppliers": suppliers,
-            "analyses": 0,
+            "analyses": get_analysis_count(),
         }
+
+    finally:
+        cursor.close()
+        connection.close()
+def save_analysis(
+    product_id: int,
+    supplier: str,
+    shipping: str,
+    quantity: int,
+    selling_price_mmk: float,
+    profit_margin: float,
+    ai_score: float,
+    decision: str,
+):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO analysis_history (
+                product_id,
+                supplier,
+                shipping,
+                quantity,
+                selling_price_mmk,
+                profit_margin,
+                ai_score,
+                decision
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                product_id,
+                supplier,
+                shipping,
+                quantity,
+                selling_price_mmk,
+                profit_margin,
+                ai_score,
+                decision,
+            ),
+        )
+
+        connection.commit()
+
+        return cursor.lastrowid
+
+    finally:
+        cursor.close()
+        connection.close()
+
+def get_analysis_history(limit=10):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                ah.id,
+                DATE_FORMAT(
+                    ah.created_at,
+                    '%Y-%m-%d'
+                ) AS date,
+                ah.product_id,
+                p.name AS product_name,
+                ah.supplier,
+                ah.shipping,
+                ah.quantity,
+                ah.selling_price_mmk,
+                ah.profit_margin,
+                ah.ai_score,
+                ah.decision
+            FROM analysis_history ah
+            JOIN products p
+                ON p.id = ah.product_id
+            ORDER BY ah.created_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_analysis_count():
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM analysis_history
+            """
+        )
+
+        return cursor.fetchone()[0]
 
     finally:
         cursor.close()

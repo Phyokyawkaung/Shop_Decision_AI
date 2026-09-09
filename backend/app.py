@@ -17,6 +17,9 @@ from database import (
     get_all_product_records,
     get_inventory_overview,
     get_dashboard_stats,
+    save_analysis,
+    get_analysis_history,
+    get_analysis_count,
 )
 
 from exchange_rate import get_thb_to_mmk_rate
@@ -200,7 +203,9 @@ def get_recommendation(
                     product,
                 )
             )
-
+            supplier_rows = get_suppliers(
+                product_data["id"]
+            )
             inventory_available = (
                 load_inventory_into_prolog(
                     prolog,
@@ -464,6 +469,30 @@ def get_recommendation(
                 expected_revenue_mmk
                 - total_cost_mmk
             )
+            supplier_comparison = []
+
+            for supplier in supplier_rows:
+                supplier_comparison.append({
+                    "supplier": supplier["name"],
+                    "price_thb": round(
+                        float(supplier["price_thb"]),
+                        2,
+                    ),
+                    "moq": int(
+                        supplier["moq"]
+                    ),
+                    "rating": round(
+                        float(supplier["rating"]),
+                        2,
+                    ),
+                    "trust_score": int(
+                        supplier["trust_score"]
+                    ),
+                    "selected": (
+                        supplier["name"]
+                        == supplier_name
+                    ),
+                })
 
             return {
                 "product": {
@@ -480,7 +509,9 @@ def get_recommendation(
                         weight_per_item
                     ),
                 },
-
+                                
+                "supplier_comparison": supplier_comparison,
+                
                 "recommendation": {
                     "supplier": supplier_name,
                     "shipping": shipping_name,
@@ -516,6 +547,7 @@ def get_recommendation(
                 "exchange_rate_info": (
                     exchange_data
                 ),
+
             }
 
 
@@ -705,6 +737,22 @@ def analyze_api():
                 )
             }), 422
 
+        decision = (
+            "IMPORT"
+            if result["recommendation"]["profit_margin"] >= 20
+            else "REVIEW"
+        )
+
+        save_analysis(
+            product_id=product_id,
+            supplier=result["recommendation"]["supplier"],
+            shipping=result["recommendation"]["shipping"],
+            quantity=quantity,
+            selling_price_mmk=selling_price_mmk,
+            profit_margin=result["recommendation"]["profit_margin"],
+            ai_score=result["recommendation"]["ai_score"],
+            decision=decision,
+        )
         return jsonify(result)
 
     except KeyError as error:
@@ -735,10 +783,8 @@ def analyze_api():
 def inventory_api():
     try:
         return jsonify({
-            "inventory": (
-                get_inventory_overview()
-            ),
-            "decision_log": [],
+            "inventory": get_inventory_overview(),
+            "decision_log": get_analysis_history(),
         })
 
     except Exception as error:
@@ -746,13 +792,26 @@ def inventory_api():
             "error": str(error)
         }), 500
 
-
 @app.get("/api/dashboard")
 def dashboard_api():
     try:
-        return jsonify({
-            "stats": get_dashboard_stats(),
-            "recent_analysis": {
+        history = get_analysis_history(1)
+
+        if history:
+            latest = history[0]
+
+            recent_analysis = {
+                "product_id": latest["product_id"],
+                "product_name": latest["product_name"],
+                "supplier_name": latest["supplier"],
+                "shipping_method": latest["shipping"],
+                "profit_margin": latest["profit_margin"],
+                "quantity": latest["quantity"],
+                "selling_price_mmk": latest["selling_price_mmk"],
+                "urgency": "normal",
+            }
+        else:
+            recent_analysis = {
                 "product_id": None,
                 "product_name": "No analysis yet",
                 "supplier_name": "-",
@@ -761,7 +820,11 @@ def dashboard_api():
                 "quantity": 0,
                 "selling_price_mmk": 0,
                 "urgency": "normal",
-            },
+            }
+
+        return jsonify({
+            "stats": get_dashboard_stats(),
+            "recent_analysis": recent_analysis,
         })
 
     except Exception as error:

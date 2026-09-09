@@ -505,7 +505,133 @@ export default function Analysis() {
                   </div>
 
                 </section>
+                <section className="glass-card">
 
+                  <div className="mb-4">
+
+                    <h3 className="text-lg font-bold text-[#27212d]">
+                      Supplier Comparison
+                    </h3>
+
+                    <p className="mt-1 text-sm text-[#817989]">
+                      Available suppliers for this product. The highlighted supplier was selected by the AI.
+                    </p>
+
+                  </div>
+
+                  <div className="overflow-x-auto">
+
+                    <table className="w-full min-w-[700px] text-left text-sm">
+
+                      <thead>
+
+                        <tr className="border-b border-[#e1dae6] bg-[#f8f5fa] text-xs font-semibold uppercase tracking-wide text-[#756d7c]">
+
+                          <th className="px-4 py-3">
+                            Supplier
+                          </th>
+
+                          <th className="px-4 py-3">
+                            Price
+                          </th>
+
+                          <th className="px-4 py-3">
+                            MOQ
+                          </th>
+
+                          <th className="px-4 py-3">
+                            Rating
+                          </th>
+
+                          <th className="px-4 py-3">
+                            Trust
+                          </th>
+
+                          <th className="px-4 py-3">
+                            Result
+                          </th>
+
+                        </tr>
+
+                      </thead>
+
+                      <tbody className="divide-y divide-[#e7e1eb]">
+
+                        {result.supplier_comparison?.map(
+                          (supplier) => (
+
+                            <tr
+                              key={supplier.supplier}
+                              className={
+                                supplier.selected
+                                  ? 'bg-[#edf8f6]'
+                                  : 'bg-white'
+                              }
+                            >
+
+                              <td className="px-4 py-4 font-semibold text-[#27212d]">
+
+                                {supplier.supplier}
+
+                              </td>
+
+                              <td className="px-4 py-4 font-medium text-[#514957]">
+
+                                {formatNumber(
+                                  supplier.price_thb
+                                )}{' '}
+                                THB
+
+                              </td>
+
+                              <td className="px-4 py-4 text-[#514957]">
+
+                                {supplier.moq}
+
+                              </td>
+
+                              <td className="px-4 py-4 text-[#514957]">
+
+                                {supplier.rating} ★
+
+                              </td>
+
+                              <td className="px-4 py-4 text-[#514957]">
+
+                                {supplier.trust_score}
+
+                              </td>
+
+                              <td className="px-4 py-4">
+
+                                {supplier.selected ? (
+
+                                  <span className="inline-flex rounded-md border border-[#a9d6cf] bg-[#edf8f6] px-3 py-1 text-xs font-bold uppercase text-[#24776d]">
+                                    Selected
+                                  </span>
+
+                                ) : (
+
+                                  <span className="text-xs font-medium text-[#817989]">
+                                    Alternative
+                                  </span>
+
+                                )}
+
+                              </td>
+
+                            </tr>
+
+                          ),
+                        )}
+
+                      </tbody>
+
+                    </table>
+
+                  </div>
+
+                </section>
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
 
                   <section className="glass-card">
